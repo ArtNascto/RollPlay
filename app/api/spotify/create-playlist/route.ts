@@ -9,6 +9,7 @@ import {
 } from '@/lib/spotify';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { ensureSpotifyCompatibleJpeg } from '@/lib/image';
 
 // Get valid access token, refreshing if needed
 async function getValidAccessToken(): Promise<string | null> {
@@ -190,23 +191,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let warning: string | undefined;
+
     // Upload custom playlist image (RollPlay logo)
     try {
       const imagePath = join(process.cwd(), 'public', 'img_capa.png');
       const imageBuffer = readFileSync(imagePath);
+      const jpegBuffer = await ensureSpotifyCompatibleJpeg(imageBuffer);
 
-      await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
+      await uploadPlaylistImage(accessToken, playlist.id, jpegBuffer);
       console.log('Playlist cover image uploaded successfully');
       debugLogs.push('✓ Playlist cover image uploaded');
     } catch (imageError: any) {
+      warning = 'playlist criada, mas capa não aplicada';
       console.warn('Failed to upload playlist image (non-critical):', imageError.message);
       debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
+      debugLogs.push(`⚠️ ${warning}`);
       // Don't fail the request if image upload fails
     }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
+      warning,
       debugLogs,
     });
   } catch (error: any) {
