@@ -9,6 +9,7 @@ import {
 } from '@/lib/spotify';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { ensureSpotifyCompatibleJpeg } from '@/lib/image';
 
 // Get valid access token, refreshing if needed
 async function getValidAccessToken(): Promise<string | null> {
@@ -216,6 +217,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+<<<<<<< codex/convert-png-to-jpeg-for-upload
+    let warning: string | undefined;
+
+    // Upload custom playlist image (RollPlay logo)
+    try {
+      const imagePath = join(process.cwd(), 'public', 'img_capa.png');
+      const imageBuffer = readFileSync(imagePath);
+      const jpegBuffer = await ensureSpotifyCompatibleJpeg(imageBuffer);
+
+      await uploadPlaylistImage(accessToken, playlist.id, jpegBuffer);
+      console.log('Playlist cover image uploaded successfully');
+      debugLogs.push('✓ Playlist cover image uploaded');
+    } catch (imageError: any) {
+      warning = 'playlist criada, mas capa não aplicada';
+      console.warn('Failed to upload playlist image (non-critical):', imageError.message);
+      debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
+      debugLogs.push(`⚠️ ${warning}`);
+      // Don't fail the request if image upload fails
+=======
     const warnings: string[] = [];
 
     // Upload custom playlist image (RollPlay logo)
@@ -239,12 +259,17 @@ export async function POST(request: NextRequest) {
       console.warn(imageScopeWarning);
       debugLogs.push(`⚠️ ${imageScopeWarning}`);
       warnings.push(imageScopeWarning);
+>>>>>>> master
     }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
+<<<<<<< codex/convert-png-to-jpeg-for-upload
+      warning,
+=======
       warning: warnings.length > 0 ? warnings.join(' ') : undefined,
+>>>>>>> master
       debugLogs,
     });
   } catch (error: any) {
