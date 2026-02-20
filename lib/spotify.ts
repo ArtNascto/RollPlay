@@ -115,7 +115,7 @@ export async function createPlaylist(
     body: JSON.stringify({
       name,
       description,
-      public: false, // Changed to false to avoid potential permission issues
+      public: true, // Public playlists work more reliably with standard permissions
     }),
   });
 
