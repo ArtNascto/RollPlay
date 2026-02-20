@@ -34,10 +34,25 @@ export async function POST(request: NextRequest) {
     const accessToken = await getValidAccessToken();
     const session = await getSession();
     
+    console.log('Session check:', {
+      hasAccessToken: !!accessToken,
+      hasUser: !!session.user,
+      userId: session.user?.id,
+      userEmail: session.user?.email,
+    });
+    
     if (!accessToken || !session.user) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
+      );
+    }
+
+    if (!session.user.id) {
+      console.error('User ID is missing from session');
+      return NextResponse.json(
+        { error: 'User ID not found in session' },
+        { status: 400 }
       );
     }
 

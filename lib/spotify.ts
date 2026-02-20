@@ -32,6 +32,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
 
 // Get current user profile
 export async function getCurrentUser(accessToken: string) {
+  console.log('Fetching current user profile...');
+  
   const response = await fetch(`${SPOTIFY_API_BASE}/me`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -39,10 +41,20 @@ export async function getCurrentUser(accessToken: string) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get user profile');
+    const errorData = await response.json().catch(() => ({}));
+    console.error(`Failed to get user profile (HTTP ${response.status}):`, errorData);
+    throw new Error(`Failed to get user profile: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const userData = await response.json();
+  console.log('User profile data:', {
+    id: userData.id,
+    email: userData.email,
+    display_name: userData.display_name,
+    uri: userData.uri,
+  });
+  
+  return userData;
 }
 
 // Search for tracks
@@ -90,6 +102,8 @@ export async function createPlaylist(
   name: string,
   description: string
 ): Promise<{ id: string; url: string }> {
+  console.log(`Creating playlist for user ${userId}: "${name}"`);
+  
   const response = await fetch(`${SPOTIFY_API_BASE}/users/${userId}/playlists`, {
     method: 'POST',
     headers: {
@@ -104,10 +118,14 @@ export async function createPlaylist(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create playlist');
+    const errorData = await response.json().catch(() => ({}));
+    console.error(`Failed to create playlist (HTTP ${response.status}):`, errorData);
+    throw new Error(`Failed to create playlist: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
   }
 
   const data = await response.json();
+  console.log(`Playlist created successfully: ${data.id}`);
+  
   return {
     id: data.id,
     url: data.external_urls.spotify,

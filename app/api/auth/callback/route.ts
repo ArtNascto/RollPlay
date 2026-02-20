@@ -54,6 +54,12 @@ export async function GET(request: NextRequest) {
     
     // Get user profile
     const user = await getCurrentUser(data.access_token);
+    
+    console.log('User profile retrieved:', {
+      id: user.id,
+      email: user.email,
+      displayName: user.display_name,
+    });
 
     // Whitelist check - only allow specific user
     const ALLOWED_EMAIL = 'arthurgnascto@gmail.com';
@@ -73,6 +79,8 @@ export async function GET(request: NextRequest) {
       displayName: user.display_name,
     };
     await session.save();
+    
+    console.log('Session saved successfully with user ID:', user.id);
 
     // Redirect to home
     return NextResponse.redirect(new URL('/', request.url));
