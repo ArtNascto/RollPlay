@@ -164,11 +164,42 @@ export async function addTracksToPlaylist(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error(`Failed to add tracks (HTTP ${response.status}):`, errorData);
-      throw new Error(`Failed to add tracks to playlist: ${response.status} ${response.statusText}`);
+      console.error(`Failed to add tracks (HTTP ${response.status}):`, {
+        error: errorData,
+        playlistId,
+        batchSize: batch.length,
+        uris: batch,
+      });
+      throw new Error(`Failed to add tracks to playlist: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
     
     const result = await response.json();
     console.log(`Batch ${Math.floor(i/100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
   }
+}
+
+// Upload custom image to playlist (must be base64-encoded JPEG, max 256KB)
+export async function uploadPlaylistImage(
+  accessToken: string,
+  playlistId: string,
+  imageBase64: string
+): Promise<void> {
+  console.log(`Uploading custom image to playlist ${playlistId}`);
+  
+  const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/images`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'image/jpeg',
+    },
+    body: imageBase64, // Must be base64-encoded JPEG without data URI prefix
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text().catch(() => '');
+    console.error(`Failed to upload playlist image (HTTP ${response.status}):`, errorData);
+    throw new Error(`Failed to upload playlist image: ${response.status} ${response.statusText}`);
+  }
+  
+  console.log('Playlist image uploaded successfully');
 }

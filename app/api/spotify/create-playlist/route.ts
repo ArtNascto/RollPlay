@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { refreshAccessToken, createPlaylist, addTracksToPlaylist } from '@/lib/spotify';
+import { refreshAccessToken, createPlaylist, addTracksToPlaylist, uploadPlaylistImage } from '@/lib/spotify';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // Get valid access token, refreshing if needed
 async function getValidAccessToken(): Promise<string | null> {
@@ -89,6 +91,19 @@ export async function POST(request: NextRequest) {
         playlistId: playlist.id,
         warning: `Playlist created but failed to add tracks: ${addError.message}`,
       }, { status: 207 }); // 207 Multi-Status
+    }
+
+    // Upload custom playlist image (RollPlay logo)
+    try {
+      const iconPath = join(process.cwd(), 'public', 'icon-512.png');
+      const imageBuffer = readFileSync(iconPath);
+      const imageBase64 = imageBuffer.toString('base64');
+      
+      await uploadPlaylistImage(accessToken, playlist.id, imageBase64);
+      console.log('Playlist cover image uploaded successfully');
+    } catch (imageError: any) {
+      console.warn('Failed to upload playlist image (non-critical):', imageError.message);
+      // Don't fail the request if image upload fails
     }
 
     return NextResponse.json({

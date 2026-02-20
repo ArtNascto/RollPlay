@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     'playlist-modify-private',
     'user-read-email',
     'user-read-private', // Added: needed to read user profile and create playlists
+    'ugc-image-upload', // Added: allows uploading custom playlist cover images
   ];
 
   const params = new URLSearchParams({
