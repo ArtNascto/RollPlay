@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    
+
     // Get user profile
     const user = await getCurrentUser(data.access_token);
-    
+
     console.log('User profile retrieved:', {
       id: user.id,
       email: user.email,
@@ -71,7 +71,10 @@ export async function GET(request: NextRequest) {
     // Save to session
     const session = await getSession();
     session.accessToken = data.access_token;
-    session.refreshToken = data.refresh_token;
+    if (data.refresh_token) {
+      session.refreshToken = data.refresh_token;
+    }
+    session.scope = data.scope;
     session.expiresAt = Date.now() + data.expires_in * 1000;
     session.user = {
       id: user.id,
@@ -79,7 +82,7 @@ export async function GET(request: NextRequest) {
       displayName: user.display_name,
     };
     await session.save();
-    
+
     console.log('Session saved successfully with user ID:', user.id);
 
     // Redirect to home

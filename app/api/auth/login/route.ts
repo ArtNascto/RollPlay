@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     redirect_uri: redirectUri,
     state: state,
     scope: scopes.join(' '),
+    show_dialog: 'true',
   });
 
   const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;

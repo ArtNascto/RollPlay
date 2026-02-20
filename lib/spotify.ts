@@ -10,7 +10,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
 }> {
   const clientId = process.env.SPOTIFY_CLIENT_ID!;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET!;
-  
+
   const response = await fetch(`${SPOTIFY_ACCOUNTS_BASE}/api/token`, {
     method: 'POST',
     headers: {
@@ -33,7 +33,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
 // Get current user profile
 export async function getCurrentUser(accessToken: string) {
   console.log('Fetching current user profile...');
-  
+
   const response = await fetch(`${SPOTIFY_API_BASE}/me`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -53,7 +53,7 @@ export async function getCurrentUser(accessToken: string) {
     display_name: userData.display_name,
     uri: userData.uri,
   });
-  
+
   return userData;
 }
 
@@ -82,7 +82,7 @@ export async function searchTracks(
   }
 
   const data = await response.json();
-  
+
   return data.tracks.items.map((item: any) => ({
     id: item.id,
     title: item.name,
@@ -120,7 +120,7 @@ export async function createPlaylist(
   description: string
 ): Promise<{ id: string; url: string }> {
   console.log(`Creating playlist for user ${userId}: "${name}"`);
-  
+
   // Try using /me/playlists endpoint instead of /users/{user_id}/playlists
   // This is more reliable and doesn't require exact user ID format
   const response = await fetch(`${SPOTIFY_API_BASE}/me/playlists`, {
@@ -144,7 +144,7 @@ export async function createPlaylist(
 
   const data = await response.json();
   console.log(`Playlist created successfully: ${data.id}`);
-  
+
   return {
     id: data.id,
     url: data.external_urls.spotify,
@@ -178,29 +178,29 @@ export async function addTracksToPlaylist(
   uris: string[]
 ): Promise<void> {
   console.log('📋 addTracksToPlaylist called with:', { playlistId, uriCount: uris.length });
-  
+
   if (!uris || uris.length === 0) {
     throw new Error('No tracks to add');
   }
 
   // Filter out invalid URIs (must start with spotify:track:)
   const validUris = uris.filter(uri => uri && uri.startsWith('spotify:track:'));
-  
+
   if (validUris.length === 0) {
     throw new Error('No valid track URIs found');
   }
-  
+
   console.log(`✓ Filtered ${uris.length} URIs, ${validUris.length} valid URIs to add`);
   console.log('📝 Sample valid URIs (first 3):', validUris.slice(0, 3));
 
   // Split into batches of 100 (Spotify limit)
   for (let i = 0; i < validUris.length; i += 100) {
     const batch = validUris.slice(i, i + 100);
-    
-    console.log(`\n🔄 Processing batch ${Math.floor(i/100) + 1}/${Math.ceil(validUris.length/100)}: ${batch.length} tracks`);
+
+    console.log(`\n🔄 Processing batch ${Math.floor(i / 100) + 1}/${Math.ceil(validUris.length / 100)}: ${batch.length} tracks`);
     console.log(`📡 Sending POST to: /playlists/${playlistId}/tracks`);
     console.log(`📦 Payload URIs (first 2):`, batch.slice(0, 2));
-    
+
     // Try method 1: POST with body (standard way)
     let response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
       method: 'POST',
@@ -208,11 +208,22 @@ export async function addTracksToPlaylist(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        uris: batch,
-        position: 0,
-      }),
+      body: JSON.stringify({ uris: batch }),
     });
+
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get('retry-after') || '1');
+      await new Promise(r => setTimeout(r, (retryAfter + 1) * 1000));
+      // retry 1x
+      response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ uris: batch }),
+      });
+    }
 
     console.log(`📬 Response status: ${response.status} ${response.statusText}`);
 
@@ -229,9 +240,9 @@ export async function addTracksToPlaylist(
       console.error('Access token (first 20 chars):', accessToken.substring(0, 20) + '...');
       throw new Error(`Failed to add tracks to playlist: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
-    
+
     const result = await response.json();
-    console.log(`✓ Batch ${Math.floor(i/100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
+    console.log(`✓ Batch ${Math.floor(i / 100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
   }
 }
 
@@ -242,10 +253,10 @@ export async function uploadPlaylistImage(
   imageBuffer: Buffer
 ): Promise<void> {
   console.log(`Uploading custom image to playlist ${playlistId}`);
-  
+
   // Spotify requires base64-encoded string WITHOUT the data URI prefix
   const imageBase64 = imageBuffer.toString('base64');
-  
+
   const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/images`, {
     method: 'PUT',
     headers: {
@@ -260,6 +271,6 @@ export async function uploadPlaylistImage(
     console.error(`Failed to upload playlist image (HTTP ${response.status}):`, errorData);
     throw new Error(`Failed to upload playlist image: ${response.status} ${response.statusText}`);
   }
-  
+
   console.log('Playlist image uploaded successfully');
 }

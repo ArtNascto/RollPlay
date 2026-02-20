@@ -15,6 +15,7 @@ export interface SessionData {
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: number;
+  scope?: string;
   user?: {
     id: string;
     email: string;
