@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       hasUser: !!session.user,
       userId: session.user?.id,
       userEmail: session.user?.email,
+      tokenLength: accessToken?.length,
     };
     console.log('Session check:', sessionInfo);
     debugLogs.push(`Session check: ${JSON.stringify(sessionInfo)}`);
@@ -121,6 +122,11 @@ export async function POST(request: NextRequest) {
       console.log('🔑 Using access token (first 20 chars):', accessToken.substring(0, 20) + '...');
       debugLogs.push(`🎵 About to add ${trackUris.length} tracks`);
       debugLogs.push(`🔑 Access token (first 20): ${accessToken.substring(0, 20)}...`);
+      debugLogs.push(`🔑 Access token length: ${accessToken.length}`);
+      
+      // Log the exact request that will be made
+      debugLogs.push(`📡 Will POST to: https://api.spotify.com/v1/playlists/${playlist.id}/tracks`);
+      debugLogs.push(`📦 Request body will contain ${trackUris.length} URIs`);
       
       await addTracksToPlaylist(accessToken, playlist.id, trackUris);
       console.log(`✓ All ${trackUris.length} tracks added successfully`);

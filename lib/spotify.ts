@@ -95,6 +95,23 @@ export async function searchTracks(
   }));
 }
 
+// Get token info including scopes
+export async function getTokenInfo(accessToken: string): Promise<any> {
+  const response = await fetch('https://api.spotify.com/v1/me', {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to get token info');
+  }
+
+  // Try to get scopes from the token by checking what the API allows
+  // This is an indirect way since Spotify doesn't expose scopes directly
+  return await response.json();
+}
+
 // Create playlist
 export async function createPlaylist(
   accessToken: string,
@@ -115,7 +132,7 @@ export async function createPlaylist(
     body: JSON.stringify({
       name,
       description,
-      public: true, // Public playlists work more reliably with standard permissions
+      public: false, // Try private playlist to test if it's a public playlist permission issue
     }),
   });
 
@@ -184,8 +201,8 @@ export async function addTracksToPlaylist(
     console.log(`📡 Sending POST to: /playlists/${playlistId}/tracks`);
     console.log(`📦 Payload URIs (first 2):`, batch.slice(0, 2));
     
-    // Use /tracks endpoint (same as working Python code)
-    const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
+    // Try method 1: POST with body (standard way)
+    let response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -193,6 +210,7 @@ export async function addTracksToPlaylist(
       },
       body: JSON.stringify({
         uris: batch,
+        position: 0,
       }),
     });
 
