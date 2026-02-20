@@ -81,6 +81,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated', debugLogs }, { status: 401 });
     }
 
+    const grantedScopes = new Set(
+      (session.scope || '')
+        .split(/\s+/)
+        .map((scope) => scope.trim())
+        .filter(Boolean)
+    );
+
+    const hasPlaylistModifyScope =
+      grantedScopes.has('playlist-modify-private') || grantedScopes.has('playlist-modify-public');
+
+    debugLogs.push(`Granted scopes: ${Array.from(grantedScopes).join(', ') || '(none)'}`);
+
+    if (!hasPlaylistModifyScope) {
+      debugLogs.push('❌ Missing playlist modify scope. Re-login required to grant permissions.');
+      return NextResponse.json(
+        {
+          error: 'Missing Spotify playlist permissions. Please logout and login again to renew scopes.',
+          code: 'INSUFFICIENT_SCOPE_RELOGIN',
+          requiredScopes: ['playlist-modify-private'],
+          grantedScopes: Array.from(grantedScopes),
+          debugLogs,
+        },
+        { status: 403 }
+      );
+    }
+
     if (!session.user.id) {
       console.error('User ID is missing from session');
       debugLogs.push('ERROR: User ID is missing from session');
@@ -190,23 +216,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload custom playlist image (RollPlay logo)
-    try {
-      const imagePath = join(process.cwd(), 'public', 'img_capa.png');
-      const imageBuffer = readFileSync(imagePath);
+    const warnings: string[] = [];
 
-      await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
-      console.log('Playlist cover image uploaded successfully');
-      debugLogs.push('✓ Playlist cover image uploaded');
-    } catch (imageError: any) {
-      console.warn('Failed to upload playlist image (non-critical):', imageError.message);
-      debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
-      // Don't fail the request if image upload fails
+    // Upload custom playlist image (RollPlay logo)
+    if (grantedScopes.has('ugc-image-upload')) {
+      try {
+        const imagePath = join(process.cwd(), 'public', 'img_capa.png');
+        const imageBuffer = readFileSync(imagePath);
+
+        await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
+        console.log('Playlist cover image uploaded successfully');
+        debugLogs.push('✓ Playlist cover image uploaded');
+      } catch (imageError: any) {
+        console.warn('Failed to upload playlist image (non-critical):', imageError.message);
+        debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
+        warnings.push(`Falha ao enviar capa da playlist: ${imageError.message}`);
+        // Don't fail the request if image upload fails
+      }
+    } else {
+      const imageScopeWarning =
+        'Capa não enviada: faltou o escopo ugc-image-upload. Faça login novamente para permitir upload de capa.';
+      console.warn(imageScopeWarning);
+      debugLogs.push(`⚠️ ${imageScopeWarning}`);
+      warnings.push(imageScopeWarning);
     }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
+      warning: warnings.length > 0 ? warnings.join(' ') : undefined,
       debugLogs,
     });
   } catch (error: any) {
