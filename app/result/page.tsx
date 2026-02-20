@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
@@ -9,7 +9,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import type { Track, GenerationResponse } from '@/types';
 import Image from 'next/image';
 
-export default function ResultPage() {
+function ResultContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -275,5 +275,22 @@ export default function ResultPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResultPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-full flex items-center justify-center px-4">
+        <Card variant="surface-2" className="max-w-md w-full">
+          <Loading />
+          <p className="text-center text-text-secondary mt-4">
+            Carregando...
+          </p>
+        </Card>
+      </div>
+    }>
+      <ResultContent />
+    </Suspense>
   );
 }
