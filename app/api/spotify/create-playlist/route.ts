@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
     console.log('First 5 track URIs:', trackUris.slice(0, 5));
+    console.log('========== BEGINNING PLAYLIST CREATION ==========');
 
     // Create playlist
     const playlist = await createPlaylist(
@@ -78,15 +79,21 @@ export async function POST(request: NextRequest) {
       description || 'Created with RollPlay'
     );
 
-    console.log(`Playlist created successfully: ${playlist.id}`);
+    console.log(`✓ Playlist created successfully: ${playlist.id}`);
+    console.log(`✓ Playlist URL: ${playlist.url}`);
 
     // Small delay to ensure playlist is ready (Spotify sometimes needs time to process)
+    console.log('⏳ Waiting 500ms for Spotify to process playlist...');
     await new Promise(resolve => setTimeout(resolve, 500));
+    console.log('✓ Delay complete, preparing to add tracks...');
 
     // Add tracks to playlist
     try {
+      console.log(`🎵 About to add ${trackUris.length} tracks to playlist ${playlist.id}`);
+      console.log('🔑 Using access token (first 20 chars):', accessToken.substring(0, 20) + '...');
+      
       await addTracksToPlaylist(accessToken, playlist.id, trackUris);
-      console.log(`All ${trackUris.length} tracks added successfully`);
+      console.log(`✓ All ${trackUris.length} tracks added successfully`);
     } catch (addError: any) {
       console.error('Failed to add tracks:', addError);
       // Return playlist URL even if adding tracks failed

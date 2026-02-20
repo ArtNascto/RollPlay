@@ -140,6 +140,8 @@ export async function addTracksToPlaylist(
   playlistId: string,
   uris: string[]
 ): Promise<void> {
+  console.log('📋 addTracksToPlaylist called with:', { playlistId, uriCount: uris.length });
+  
   if (!uris || uris.length === 0) {
     throw new Error('No tracks to add');
   }
@@ -151,13 +153,16 @@ export async function addTracksToPlaylist(
     throw new Error('No valid track URIs found');
   }
   
-  console.log(`Filtered ${uris.length} URIs, ${validUris.length} valid URIs to add`);
+  console.log(`✓ Filtered ${uris.length} URIs, ${validUris.length} valid URIs to add`);
+  console.log('📝 Sample valid URIs (first 3):', validUris.slice(0, 3));
 
   // Split into batches of 100 (Spotify limit)
   for (let i = 0; i < validUris.length; i += 100) {
     const batch = validUris.slice(i, i + 100);
     
-    console.log(`Adding batch ${Math.floor(i/100) + 1}: ${batch.length} tracks to playlist ${playlistId}`);
+    console.log(`\n🔄 Processing batch ${Math.floor(i/100) + 1}/${Math.ceil(validUris.length/100)}: ${batch.length} tracks`);
+    console.log(`📡 Sending POST to: /playlists/${playlistId}/tracks`);
+    console.log(`📦 Payload URIs (first 2):`, batch.slice(0, 2));
     
     // Use /tracks endpoint (same as working Python code)
     const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
@@ -171,19 +176,24 @@ export async function addTracksToPlaylist(
       }),
     });
 
+    console.log(`📬 Response status: ${response.status} ${response.statusText}`);
+
+    console.log(`📬 Response status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error(`Failed to add tracks (HTTP ${response.status}):`, {
-        error: errorData,
-        playlistId,
-        batchSize: batch.length,
-        uris: batch,
-      });
+      console.error('\n❌ FAILED TO ADD TRACKS:');
+      console.error('Status:', response.status, response.statusText);
+      console.error('Error data:', JSON.stringify(errorData, null, 2));
+      console.error('Playlist ID:', playlistId);
+      console.error('Batch size:', batch.length);
+      console.error('First 3 URIs in failed batch:', batch.slice(0, 3));
+      console.error('Access token (first 20 chars):', accessToken.substring(0, 20) + '...');
       throw new Error(`Failed to add tracks to playlist: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
     
     const result = await response.json();
-    console.log(`Batch ${Math.floor(i/100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
+    console.log(`✓ Batch ${Math.floor(i/100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
   }
 }
 
