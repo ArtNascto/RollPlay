@@ -144,9 +144,18 @@ export async function addTracksToPlaylist(
     throw new Error('No tracks to add');
   }
 
+  // Filter out invalid URIs (must start with spotify:track:)
+  const validUris = uris.filter(uri => uri && uri.startsWith('spotify:track:'));
+  
+  if (validUris.length === 0) {
+    throw new Error('No valid track URIs found');
+  }
+  
+  console.log(`Filtered ${uris.length} URIs, ${validUris.length} valid URIs to add`);
+
   // Split into batches of 100 (Spotify limit)
-  for (let i = 0; i < uris.length; i += 100) {
-    const batch = uris.slice(i, i + 100);
+  for (let i = 0; i < validUris.length; i += 100) {
+    const batch = validUris.slice(i, i + 100);
     
     console.log(`Adding batch ${Math.floor(i/100) + 1}: ${batch.length} tracks to playlist ${playlistId}`);
     
@@ -182,9 +191,12 @@ export async function addTracksToPlaylist(
 export async function uploadPlaylistImage(
   accessToken: string,
   playlistId: string,
-  imageBase64: string
+  imageBuffer: Buffer
 ): Promise<void> {
   console.log(`Uploading custom image to playlist ${playlistId}`);
+  
+  // Spotify requires base64-encoded string WITHOUT the data URI prefix
+  const imageBase64 = imageBuffer.toString('base64');
   
   const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/images`, {
     method: 'PUT',
@@ -192,7 +204,7 @@ export async function uploadPlaylistImage(
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'image/jpeg',
     },
-    body: imageBase64, // Must be base64-encoded JPEG without data URI prefix
+    body: imageBase64,
   });
 
   if (!response.ok) {

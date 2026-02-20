@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
+    console.log('First 5 track URIs:', trackUris.slice(0, 5));
 
     // Create playlist
     const playlist = await createPlaylist(
@@ -78,6 +79,9 @@ export async function POST(request: NextRequest) {
     );
 
     console.log(`Playlist created successfully: ${playlist.id}`);
+
+    // Small delay to ensure playlist is ready (Spotify sometimes needs time to process)
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     // Add tracks to playlist
     try {
@@ -95,11 +99,10 @@ export async function POST(request: NextRequest) {
 
     // Upload custom playlist image (RollPlay logo)
     try {
-      const iconPath = join(process.cwd(), 'public', 'icon-512.png');
-      const imageBuffer = readFileSync(iconPath);
-      const imageBase64 = imageBuffer.toString('base64');
+      const imagePath = join(process.cwd(), 'public', 'img_capa.png');
+      const imageBuffer = readFileSync(imagePath);
       
-      await uploadPlaylistImage(accessToken, playlist.id, imageBase64);
+      await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
       console.log('Playlist cover image uploaded successfully');
     } catch (imageError: any) {
       console.warn('Failed to upload playlist image (non-critical):', imageError.message);
