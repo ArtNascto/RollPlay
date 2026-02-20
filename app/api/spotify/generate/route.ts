@@ -49,18 +49,60 @@ export async function POST(request: NextRequest) {
     const queries: string[] = [];
     
     if (mode === 'roll' && genres.length > 0) {
-      // Dice roll mode: combine genres with variety keywords
+      /**
+       * Dice roll mode: Map dice result to genre distribution
+       * 
+       * Logic:
+       * - Divide dice faces among selected genres proportionally
+       * - rollValue determines which genre(s) to prioritize
+       * - Example: 6 genres on D12 → each genre gets 2 faces
+       *   rollValue=5 → face 5 → 3rd genre (faces 5-6)
+       */
+      
       const varietyKeywords = ['new', 'popular', 'best', 'top', 'trending'];
       const exoticKeywords = ['underground', 'experimental', 'rare', 'unique', 'obscure'];
       
-      // Use roll value to determine exoticism (higher roll = more exotic)
+      // Determine exoticism based on roll value
       const isExotic = rollValue && diceFaces && rollValue > diceFaces * 0.7;
       const keywords = isExotic ? exoticKeywords : varietyKeywords;
       
-      genres.forEach(genre => {
-        queries.push(genre);
-        queries.push(`${genre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
-      });
+      // Map rollValue to genre index
+      let priorityGenreIndex = 0;
+      if (rollValue && diceFaces && genres.length > 0) {
+        // Calculate faces per genre
+        const facesPerGenre = diceFaces / genres.length;
+        // Determine which genre this roll corresponds to
+        priorityGenreIndex = Math.min(
+          Math.floor((rollValue - 1) / facesPerGenre),
+          genres.length - 1
+        );
+      }
+      
+      // Build queries prioritizing the selected genre
+      const priorityGenre = genres[priorityGenreIndex];
+      const otherGenres = genres.filter((_, i) => i !== priorityGenreIndex);
+      
+      // Priority genre gets 60% of queries (3 out of 5)
+      queries.push(priorityGenre);
+      queries.push(`${priorityGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
+      queries.push(`${priorityGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
+      
+      // Other genres get remaining queries (2 out of 5)
+      if (otherGenres.length > 0) {
+        const secondaryGenre = otherGenres[Math.floor(Math.random() * otherGenres.length)];
+        queries.push(secondaryGenre);
+        
+        if (otherGenres.length > 1) {
+          const tertiaryGenre = otherGenres.find(g => g !== secondaryGenre) || secondaryGenre;
+          queries.push(`${tertiaryGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
+        } else {
+          queries.push(`${secondaryGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
+        }
+      } else {
+        // If only one genre, add more variations
+        queries.push(`${priorityGenre} best`);
+        queries.push(`${priorityGenre} new`);
+      }
     } else if (mode === 'country' && country) {
       // Country mode: search by country name and music terms
       queries.push(`${country} music`);

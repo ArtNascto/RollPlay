@@ -1,7 +1,33 @@
+'use client';
+
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Button from '@/components/Button';
 import Card from '@/components/Card';
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+
+  const getErrorMessage = (error: string | null) => {
+    switch (error) {
+      case 'unauthorized':
+        return 'Acesso não autorizado. Esta aplicação é de uso privado.';
+      case 'access_denied':
+        return 'Você negou o acesso. É necessário autorizar para continuar.';
+      case 'state_mismatch':
+        return 'Erro de segurança. Tente novamente.';
+      case 'token_exchange':
+        return 'Erro ao autenticar. Tente novamente.';
+      case 'no_code':
+        return 'Erro na resposta do Spotify. Tente novamente.';
+      default:
+        return null;
+    }
+  };
+
+  const errorMessage = getErrorMessage(error);
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <Card variant="surface-2" className="max-w-md w-full text-center">
@@ -13,6 +39,14 @@ export default function LoginPage() {
             Descoberta musical futurista com Spotify
           </p>
         </div>
+
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-error bg-opacity-20 border border-error rounded-lg">
+            <p className="text-error text-sm font-medium">
+              ⚠️ {errorMessage}
+            </p>
+          </div>
+        )}
 
         <div className="mb-8">
           <div className="text-7xl mb-6">🎲</div>
@@ -40,5 +74,17 @@ export default function LoginPage() {
         </p>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-text-secondary">Carregando...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

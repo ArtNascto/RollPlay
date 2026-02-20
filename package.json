@@ -11,6 +11,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@3d-dice/dice-box": "^1.1.4",
+    "@3d-dice/dice-box-threejs": "^0.0.12",
     "@ducanh2912/next-pwa": "^10.2.0",
     "@react-three/drei": "^9.105.0",
     "@react-three/fiber": "^8.16.0",

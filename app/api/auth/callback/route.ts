@@ -55,6 +55,13 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const user = await getCurrentUser(data.access_token);
 
+    // Whitelist check - only allow specific user
+    const ALLOWED_EMAIL = 'arthurgnascto@gmail.com';
+    if (user.email !== ALLOWED_EMAIL) {
+      console.warn(`Unauthorized login attempt from: ${user.email}`);
+      return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
+    }
+
     // Save to session
     const session = await getSession();
     session.accessToken = data.access_token;

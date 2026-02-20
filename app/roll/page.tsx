@@ -22,7 +22,7 @@ export default function RollPage() {
   const toggleGenre = (genre: string) => {
     if (selectedGenres.includes(genre)) {
       setSelectedGenres(selectedGenres.filter(g => g !== genre));
-    } else if (selectedGenres.length < 6) {
+    } else if (selectedGenres.length < 20) {
       setSelectedGenres([...selectedGenres, genre]);
     }
   };
@@ -58,7 +58,7 @@ export default function RollPage() {
             Dice Roll
           </h1>
           <p className="text-text-secondary">
-            Selecione até 6 gêneros e role o dado
+            Selecione até 20 gêneros e role o dado
           </p>
         </div>
 
@@ -83,14 +83,14 @@ export default function RollPage() {
         {/* Genre Selection */}
         <Card className="mb-8">
           <h3 className="text-lg font-semibold text-text-primary mb-4">
-            Selecione os gêneros (máximo 6)
+            Selecione os gêneros (máximo 20)
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-96 overflow-y-auto pr-2">
             {genres.map((genre) => (
               <button
                 key={genre}
                 onClick={() => toggleGenre(genre)}
-                disabled={!selectedGenres.includes(genre) && selectedGenres.length >= 6}
+                disabled={!selectedGenres.includes(genre) && selectedGenres.length >= 20}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   selectedGenres.includes(genre)
                     ? 'bg-neon-violet text-bg-main shadow-glow-primary'
