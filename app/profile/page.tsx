@@ -5,9 +5,12 @@ import Button from '@/components/Button';
 
 async function handleLogout() {
   'use server';
-  const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/auth/logout`, {
-    method: 'POST',
-  });
+  try {
+    const session = await getSession();
+    session.destroy();
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
   redirect('/login');
 }
 
