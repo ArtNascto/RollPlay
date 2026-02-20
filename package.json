@@ -1,0 +1,48 @@
+{
+  "name": "rollplay",
+  "version": "1.0.0",
+  "description": "Futuristic music discovery PWA with Spotify integration",
+  "scripts": {
+    "dev": "next dev",
+    "dev:https": "node scripts/dev-https.js",
+    "generate-certs": "node scripts/generate-certs.js",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.0",
+    "@react-three/drei": "^9.105.0",
+    "@react-three/fiber": "^8.16.0",
+    "iron-session": "^8.0.1",
+    "next": "^14.2.0",
+    "openai": "^4.28.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "three": "^0.163.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.163.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.2.0",
+    "node-forge": "^1.3.3",
+    "postcss": "^8.4.0",
+    "selfsigned": "^5.5.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "spotify",
+    "music",
+    "pwa",
+    "nextjs",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}
