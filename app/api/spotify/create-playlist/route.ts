@@ -58,7 +58,14 @@ async function refreshSessionTokenIfPossible(): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
-  const debugLogs: string[] = [];
+  const uiMessages: string[] = [];
+
+  const createErrorResponse = (
+    status: number,
+    errorCode: string,
+    message: string,
+    details?: Record<string, unknown>
+  ) => NextResponse.json({ errorCode, message, details }, { status });
 
   try {
     let accessToken = await getValidAccessToken();
@@ -69,33 +76,31 @@ export async function POST(request: NextRequest) {
       hasUser: !!session.user,
       userId: session.user?.id,
       userEmail: session.user?.email,
-      tokenLength: accessToken?.length,
       hasRefreshToken: !!session.refreshToken,
       expiresAt: session.expiresAt,
     };
 
     console.log('Session check:', sessionInfo);
-    debugLogs.push(`Session check: ${JSON.stringify(sessionInfo)}`);
 
     if (!accessToken || !session.user) {
-      return NextResponse.json({ error: 'Not authenticated', debugLogs }, { status: 401 });
+      return createErrorResponse(401, 'NOT_AUTHENTICATED', 'Not authenticated');
     }
 
     if (!session.user.id) {
       console.error('User ID is missing from session');
-      debugLogs.push('ERROR: User ID is missing from session');
-      return NextResponse.json({ error: 'User ID not found in session', debugLogs }, { status: 400 });
+      return createErrorResponse(400, 'MISSING_USER_ID', 'User ID not found in session');
     }
 
     const { name, description, trackUris } = await request.json();
 
     if (!name || !trackUris || trackUris.length === 0) {
-      return NextResponse.json({ error: 'Missing required fields', debugLogs }, { status: 400 });
+      return createErrorResponse(400, 'MISSING_REQUIRED_FIELDS', 'Missing required fields', {
+        required: ['name', 'trackUris'],
+      });
     }
 
     console.log(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
-    debugLogs.push(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
-    debugLogs.push(`First 5 track URIs: ${JSON.stringify(trackUris.slice(0, 5))}`);
+    console.log('First 5 track URIs:', trackUris.slice(0, 5));
 
     console.log('========== BEGINNING PLAYLIST CREATION ==========');
 
@@ -109,14 +114,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`✓ Playlist created successfully: ${playlist.id}`);
     console.log(`✓ Playlist URL: ${playlist.url}`);
-    debugLogs.push(`✓ Playlist created: ${playlist.id}`);
-    debugLogs.push(`✓ Playlist URL: ${playlist.url}`);
+    uiMessages.push('Playlist criada com sucesso.');
 
     // Small delay to ensure playlist is ready (Spotify sometimes needs time to process)
     console.log('⏳ Waiting 500ms for Spotify to process playlist...');
     await new Promise((resolve) => setTimeout(resolve, 500));
     console.log('✓ Delay complete, preparing to add tracks...');
-    debugLogs.push('✓ Delay complete, preparing to add tracks');
 
     // Verify playlist ownership and permissions
     try {
@@ -127,43 +130,33 @@ export async function POST(request: NextRequest) {
         collaborative: playlistDetails.collaborative,
         name: playlistDetails.name,
       });
-
-      debugLogs.push(`📋 Playlist owner: ${playlistDetails.owner.id}`);
-      debugLogs.push(`📋 Current user: ${session.user.id}`);
-      debugLogs.push(`📋 Is owner: ${playlistDetails.owner.id === session.user.id}`);
-      debugLogs.push(`📋 Public: ${playlistDetails.public}, Collaborative: ${playlistDetails.collaborative}`);
     } catch (verifyError: any) {
       console.error('Failed to verify playlist details:', verifyError);
-      debugLogs.push(`⚠️ Failed to verify playlist: ${verifyError.message}`);
     }
 
     // Add tracks to playlist (retry 1x on 401 by forcing refresh)
     try {
       console.log(`🎵 About to add ${trackUris.length} tracks to playlist ${playlist.id}`);
-      console.log('🔑 Using access token (first 20 chars):', accessToken.substring(0, 20) + '...');
-      debugLogs.push(`🎵 About to add ${trackUris.length} tracks`);
-      debugLogs.push(`🔑 Access token (first 20): ${accessToken.substring(0, 20)}...`);
-      debugLogs.push(`🔑 Access token length: ${accessToken.length}`);
-      debugLogs.push(`📡 Will POST to: https://api.spotify.com/v1/playlists/${playlist.id}/tracks`);
-      debugLogs.push(`📦 Request body will contain ${trackUris.length} URIs`);
+      console.log(`📡 Will POST to: https://api.spotify.com/v1/playlists/${playlist.id}/tracks`);
+      console.log(`📦 Request body will contain ${trackUris.length} URIs`);
 
       try {
         await addTracksToPlaylist(accessToken, playlist.id, trackUris);
       } catch (addError: any) {
         const msg = String(addError?.message || '');
-        debugLogs.push(`❌ addTracksToPlaylist failed: ${msg}`);
+        console.error('❌ addTracksToPlaylist failed:', msg);
 
         // If it's likely a 401, try refresh + retry once
         if (msg.includes('401')) {
-          debugLogs.push('🔁 Detected 401, attempting forced token refresh and retry 1x...');
+          console.log('🔁 Detected 401, attempting forced token refresh and retry 1x...');
           const newToken = await refreshSessionTokenIfPossible();
 
           if (newToken) {
             accessToken = newToken; // keep for next steps (like image upload)
-            debugLogs.push('✅ Token refreshed, retrying addTracksToPlaylist...');
+            console.log('✅ Token refreshed, retrying addTracksToPlaylist...');
             await addTracksToPlaylist(newToken, playlist.id, trackUris);
           } else {
-            debugLogs.push('❌ Could not refresh token (no refresh_token or refresh failed).');
+            console.error('❌ Could not refresh token (no refresh_token or refresh failed).');
             throw addError;
           }
         } else {
@@ -172,19 +165,21 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`✓ All ${trackUris.length} tracks added successfully`);
-      debugLogs.push(`✓ All ${trackUris.length} tracks added successfully`);
+      uiMessages.push(`${trackUris.length} músicas adicionadas à playlist.`);
     } catch (addError: any) {
       console.error('Failed to add tracks:', addError);
-      debugLogs.push(`❌ Failed to add tracks: ${addError.message}`);
-      debugLogs.push(`Error details: ${JSON.stringify(addError)}`);
 
       // Return playlist URL even if adding tracks failed
       return NextResponse.json(
         {
           spotifyPlaylistUrl: playlist.url,
           playlistId: playlist.id,
-          warning: `Playlist created but failed to add tracks: ${addError.message}`,
-          debugLogs,
+          messages: [...uiMessages, 'Playlist criada, mas houve falha ao adicionar músicas.'],
+          warning: 'Playlist criada, mas houve falha ao adicionar músicas.',
+          errorCode: 'TRACKS_ADD_FAILED',
+          details: {
+            trackCount: trackUris.length,
+          },
         },
         { status: 207 } // 207 Multi-Status
       );
@@ -197,21 +192,22 @@ export async function POST(request: NextRequest) {
 
       await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
       console.log('Playlist cover image uploaded successfully');
-      debugLogs.push('✓ Playlist cover image uploaded');
     } catch (imageError: any) {
       console.warn('Failed to upload playlist image (non-critical):', imageError.message);
-      debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
+      uiMessages.push('Playlist criada, mas não foi possível definir a capa automaticamente.');
       // Don't fail the request if image upload fails
     }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
-      debugLogs,
+      messages: uiMessages,
     });
   } catch (error: any) {
     console.error('Create playlist error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create playlist' }, { status: 500 });
+    return createErrorResponse(500, 'PLAYLIST_CREATION_FAILED', 'Failed to create playlist', {
+      reason: error?.message || 'Unknown error',
+    });
   }
 }
 
