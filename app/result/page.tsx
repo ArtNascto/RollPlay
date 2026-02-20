@@ -21,6 +21,7 @@ function ResultContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
+  const [scopeErrorMessage, setScopeErrorMessage] = useState<string | null>(null);
 
   const params = {
     mode: searchParams.get('mode') as 'roll' | 'country' | 'mood',
@@ -72,6 +73,7 @@ function ResultContent() {
     
     setIsSaving(true);
     setSaveSuccess(false);
+    setScopeErrorMessage(null);
     
     try {
       const response = await fetch('/api/spotify/create-playlist', {
@@ -88,6 +90,14 @@ function ResultContent() {
 
       if (!response.ok) {
         console.error('Save playlist error:', data);
+
+        if (response.status === 403 && data?.code === 'INSUFFICIENT_SCOPE_RELOGIN') {
+          setScopeErrorMessage(
+            'Seu login atual não tem permissões suficientes para salvar playlists. Faça logout e login novamente para renovar os escopos do Spotify.'
+          );
+          return;
+        }
+
         throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
@@ -106,6 +116,16 @@ function ResultContent() {
       alert(`Erro ao salvar playlist no Spotify: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRelogin = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (logoutError) {
+      console.warn('Logout failed, redirecting to login anyway:', logoutError);
+    } finally {
+      window.location.href = '/api/auth/login';
     }
   };
 
@@ -281,6 +301,18 @@ function ResultContent() {
               >
                 ✓ Playlist criada! Abrir no Spotify →
               </a>
+            </div>
+          )}
+
+          {scopeErrorMessage && (
+            <div className="mt-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-left">
+              <p className="text-sm text-text-primary">{scopeErrorMessage}</p>
+              <button
+                onClick={handleRelogin}
+                className="mt-2 inline-flex items-center rounded-md bg-warning px-3 py-1 text-sm font-medium text-bg-main hover:opacity-90 transition-opacity"
+              >
+                🔐 Renovar permissões (logout/login)
+              </button>
             </div>
           )}
         </div>
