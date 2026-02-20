@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     'playlist-modify-public',
     'playlist-modify-private',
     'user-read-email',
+    'user-read-private', // Added: needed to read user profile and create playlists
   ];
 
   const params = new URLSearchParams({

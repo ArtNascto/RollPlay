@@ -104,7 +104,9 @@ export async function createPlaylist(
 ): Promise<{ id: string; url: string }> {
   console.log(`Creating playlist for user ${userId}: "${name}"`);
   
-  const response = await fetch(`${SPOTIFY_API_BASE}/users/${userId}/playlists`, {
+  // Try using /me/playlists endpoint instead of /users/{user_id}/playlists
+  // This is more reliable and doesn't require exact user ID format
+  const response = await fetch(`${SPOTIFY_API_BASE}/me/playlists`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -113,7 +115,7 @@ export async function createPlaylist(
     body: JSON.stringify({
       name,
       description,
-      public: true,
+      public: false, // Changed to false to avoid potential permission issues
     }),
   });
 
