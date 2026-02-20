@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
     
     if (mode === 'roll' && genres.length > 0) {
       /**
-       * Dice roll mode: Map dice result to genre distribution
+       * Dice roll mode: Map dice result to ONE specific genre
        * 
        * Logic:
        * - Divide dice faces among selected genres proportionally
-       * - rollValue determines which genre(s) to prioritize
+       * - rollValue determines which SINGLE genre to use (no mixing)
        * - Example: 6 genres on D12 → each genre gets 2 faces
-       *   rollValue=5 → face 5 → 3rd genre (faces 5-6)
+       *   rollValue=5 → face 5 → 3rd genre ONLY
        */
       
       const varietyKeywords = ['new', 'popular', 'best', 'top', 'trending'];
@@ -67,42 +67,26 @@ export async function POST(request: NextRequest) {
       const keywords = isExotic ? exoticKeywords : varietyKeywords;
       
       // Map rollValue to genre index
-      let priorityGenreIndex = 0;
+      let selectedGenreIndex = 0;
       if (rollValue && diceFaces && genres.length > 0) {
         // Calculate faces per genre
         const facesPerGenre = diceFaces / genres.length;
         // Determine which genre this roll corresponds to
-        priorityGenreIndex = Math.min(
+        selectedGenreIndex = Math.min(
           Math.floor((rollValue - 1) / facesPerGenre),
           genres.length - 1
         );
       }
       
-      // Build queries prioritizing the selected genre
-      const priorityGenre = genres[priorityGenreIndex];
-      const otherGenres = genres.filter((_, i) => i !== priorityGenreIndex);
+      // Build queries using ONLY the selected genre (no mixing)
+      const selectedGenre = genres[selectedGenreIndex];
       
-      // Priority genre gets 60% of queries (3 out of 5)
-      queries.push(priorityGenre);
-      queries.push(`${priorityGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
-      queries.push(`${priorityGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
-      
-      // Other genres get remaining queries (2 out of 5)
-      if (otherGenres.length > 0) {
-        const secondaryGenre = otherGenres[Math.floor(Math.random() * otherGenres.length)];
-        queries.push(secondaryGenre);
-        
-        if (otherGenres.length > 1) {
-          const tertiaryGenre = otherGenres.find(g => g !== secondaryGenre) || secondaryGenre;
-          queries.push(`${tertiaryGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
-        } else {
-          queries.push(`${secondaryGenre} ${keywords[Math.floor(Math.random() * keywords.length)]}`);
-        }
-      } else {
-        // If only one genre, add more variations
-        queries.push(`${priorityGenre} best`);
-        queries.push(`${priorityGenre} new`);
-      }
+      // All 5 queries use the same genre with different keywords
+      queries.push(selectedGenre);
+      queries.push(`${selectedGenre} ${keywords[0]}`);
+      queries.push(`${selectedGenre} ${keywords[1]}`);
+      queries.push(`${selectedGenre} ${keywords[2]}`);
+      queries.push(`${selectedGenre} ${keywords[3]}`);
     } else if (mode === 'country' && country) {
       // Country mode: search by country name and music terms
       queries.push(`${country} music`);
@@ -162,9 +146,20 @@ export async function POST(request: NextRequest) {
     let playlistName = 'RollPlay Discovery';
     let playlistDescription = 'Discovered with RollPlay';
 
-    if (mode === 'roll' && diceFaces) {
-      playlistName = `D${diceFaces} Roll ${rollValue ? `(${rollValue})` : ''} - ${genres.slice(0, 2).join(' + ')}`;
-      playlistDescription = `Rolled a D${diceFaces} and got ${rollValue}! Exploring ${genres.join(', ')}`;
+    if (mode === 'roll' && diceFaces && genres.length > 0) {
+      // Calculate which genre was selected by the dice roll
+      let selectedGenreIndex = 0;
+      if (rollValue && diceFaces) {
+        const facesPerGenre = diceFaces / genres.length;
+        selectedGenreIndex = Math.min(
+          Math.floor((rollValue - 1) / facesPerGenre),
+          genres.length - 1
+        );
+      }
+      const selectedGenre = genres[selectedGenreIndex];
+      
+      playlistName = `D${diceFaces} (${rollValue}) - ${selectedGenre.toUpperCase()}`;
+      playlistDescription = `Rolled a D${diceFaces}, got ${rollValue}! Pure ${selectedGenre} vibes 🎲`;
     } else if (mode === 'country' && country) {
       playlistName = `${country} Discovery`;
       playlistDescription = `Musical journey through ${country}`;

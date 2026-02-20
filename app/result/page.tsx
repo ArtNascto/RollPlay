@@ -84,15 +84,26 @@ function ResultContent() {
         }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to save playlist');
+        console.error('Save playlist error:', data);
+        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      setPlaylistUrl(data.spotifyPlaylistUrl);
-      setSaveSuccess(true);
-    } catch (err) {
-      alert('Erro ao salvar playlist no Spotify');
+      // Check for partial success (207 Multi-Status)
+      if (response.status === 207 && data.warning) {
+        console.warn('Partial success:', data.warning);
+        setPlaylistUrl(data.spotifyPlaylistUrl);
+        setSaveSuccess(true);
+        alert(`Playlist criada mas com aviso: ${data.warning}`);
+      } else {
+        setPlaylistUrl(data.spotifyPlaylistUrl);
+        setSaveSuccess(true);
+      }
+    } catch (err: any) {
+      console.error('Save playlist failed:', err);
+      alert(`Erro ao salvar playlist no Spotify: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setIsSaving(false);
     }

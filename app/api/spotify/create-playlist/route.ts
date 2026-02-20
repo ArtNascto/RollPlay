@@ -50,6 +50,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
+
     // Create playlist
     const playlist = await createPlaylist(
       accessToken,
@@ -58,17 +60,30 @@ export async function POST(request: NextRequest) {
       description || 'Created with RollPlay'
     );
 
+    console.log(`Playlist created successfully: ${playlist.id}`);
+
     // Add tracks to playlist
-    await addTracksToPlaylist(accessToken, playlist.id, trackUris);
+    try {
+      await addTracksToPlaylist(accessToken, playlist.id, trackUris);
+      console.log(`All ${trackUris.length} tracks added successfully`);
+    } catch (addError: any) {
+      console.error('Failed to add tracks:', addError);
+      // Return playlist URL even if adding tracks failed
+      return NextResponse.json({
+        spotifyPlaylistUrl: playlist.url,
+        playlistId: playlist.id,
+        warning: `Playlist created but failed to add tracks: ${addError.message}`,
+      }, { status: 207 }); // 207 Multi-Status
+    }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create playlist error:', error);
     return NextResponse.json(
-      { error: 'Failed to create playlist' },
+      { error: error.message || 'Failed to create playlist' },
       { status: 500 }
     );
   }

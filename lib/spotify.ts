@@ -120,11 +120,18 @@ export async function addTracksToPlaylist(
   playlistId: string,
   uris: string[]
 ): Promise<void> {
-  // Split into batches of 100
+  if (!uris || uris.length === 0) {
+    throw new Error('No tracks to add');
+  }
+
+  // Split into batches of 100 (Spotify limit)
   for (let i = 0; i < uris.length; i += 100) {
     const batch = uris.slice(i, i + 100);
     
-    const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/items`, {
+    console.log(`Adding batch ${Math.floor(i/100) + 1}: ${batch.length} tracks to playlist ${playlistId}`);
+    
+    // Use /tracks endpoint (same as working Python code)
+    const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -136,7 +143,12 @@ export async function addTracksToPlaylist(
     });
 
     if (!response.ok) {
-      throw new Error('Failed to add tracks to playlist');
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`Failed to add tracks (HTTP ${response.status}):`, errorData);
+      throw new Error(`Failed to add tracks to playlist: ${response.status} ${response.statusText}`);
     }
+    
+    const result = await response.json();
+    console.log(`Batch ${Math.floor(i/100) + 1} added successfully. Snapshot ID:`, result.snapshot_id);
   }
 }
