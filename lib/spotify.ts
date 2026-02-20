@@ -134,6 +134,26 @@ export async function createPlaylist(
   };
 }
 
+// Get playlist details to verify ownership and permissions
+export async function getPlaylistDetails(
+  accessToken: string,
+  playlistId: string
+): Promise<any> {
+  const response = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error(`Failed to get playlist details (HTTP ${response.status}):`, errorData);
+    throw new Error(`Failed to get playlist: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
 // Add tracks to playlist (max 100 at a time)
 export async function addTracksToPlaylist(
   accessToken: string,

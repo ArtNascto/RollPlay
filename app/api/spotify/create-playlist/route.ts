@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { refreshAccessToken, createPlaylist, addTracksToPlaylist, uploadPlaylistImage } from '@/lib/spotify';
+import { refreshAccessToken, createPlaylist, addTracksToPlaylist, uploadPlaylistImage, getPlaylistDetails } from '@/lib/spotify';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -32,28 +32,33 @@ async function getValidAccessToken(): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
+  const debugLogs: string[] = []; // Array to collect logs for response
+  
   try {
     const accessToken = await getValidAccessToken();
     const session = await getSession();
     
-    console.log('Session check:', {
+    const sessionInfo = {
       hasAccessToken: !!accessToken,
       hasUser: !!session.user,
       userId: session.user?.id,
       userEmail: session.user?.email,
-    });
+    };
+    console.log('Session check:', sessionInfo);
+    debugLogs.push(`Session check: ${JSON.stringify(sessionInfo)}`);
     
     if (!accessToken || !session.user) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Not authenticated', debugLogs },
         { status: 401 }
       );
     }
 
     if (!session.user.id) {
       console.error('User ID is missing from session');
+      debugLogs.push('ERROR: User ID is missing from session');
       return NextResponse.json(
-        { error: 'User ID not found in session' },
+        { error: 'User ID not found in session', debugLogs },
         { status: 400 }
       );
     }
@@ -62,12 +67,14 @@ export async function POST(request: NextRequest) {
 
     if (!name || !trackUris || trackUris.length === 0) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields', debugLogs },
         { status: 400 }
       );
     }
 
     console.log(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
+    debugLogs.push(`Creating playlist "${name}" with ${trackUris.length} tracks for user ${session.user.id}`);
+    debugLogs.push(`First 5 track URIs: ${JSON.stringify(trackUris.slice(0, 5))}`);
     console.log('First 5 track URIs:', trackUris.slice(0, 5));
     console.log('========== BEGINNING PLAYLIST CREATION ==========');
 
@@ -81,26 +88,54 @@ export async function POST(request: NextRequest) {
 
     console.log(`✓ Playlist created successfully: ${playlist.id}`);
     console.log(`✓ Playlist URL: ${playlist.url}`);
+    debugLogs.push(`✓ Playlist created: ${playlist.id}`);
+    debugLogs.push(`✓ Playlist URL: ${playlist.url}`);
 
     // Small delay to ensure playlist is ready (Spotify sometimes needs time to process)
     console.log('⏳ Waiting 500ms for Spotify to process playlist...');
     await new Promise(resolve => setTimeout(resolve, 500));
     console.log('✓ Delay complete, preparing to add tracks...');
+    debugLogs.push('✓ Delay complete, preparing to add tracks');
+
+    // Verify playlist ownership and permissions
+    try {
+      const playlistDetails = await getPlaylistDetails(accessToken, playlist.id);
+      console.log('📋 Playlist details:', {
+        owner: playlistDetails.owner.id,
+        public: playlistDetails.public,
+        collaborative: playlistDetails.collaborative,
+        name: playlistDetails.name
+      });
+      debugLogs.push(`📋 Playlist owner: ${playlistDetails.owner.id}`);
+      debugLogs.push(`📋 Current user: ${session.user.id}`);
+      debugLogs.push(`📋 Is owner: ${playlistDetails.owner.id === session.user.id}`);
+      debugLogs.push(`📋 Public: ${playlistDetails.public}, Collaborative: ${playlistDetails.collaborative}`);
+    } catch (verifyError: any) {
+      console.error('Failed to verify playlist details:', verifyError);
+      debugLogs.push(`⚠️ Failed to verify playlist: ${verifyError.message}`);
+    }
 
     // Add tracks to playlist
     try {
       console.log(`🎵 About to add ${trackUris.length} tracks to playlist ${playlist.id}`);
       console.log('🔑 Using access token (first 20 chars):', accessToken.substring(0, 20) + '...');
+      debugLogs.push(`🎵 About to add ${trackUris.length} tracks`);
+      debugLogs.push(`🔑 Access token (first 20): ${accessToken.substring(0, 20)}...`);
       
       await addTracksToPlaylist(accessToken, playlist.id, trackUris);
       console.log(`✓ All ${trackUris.length} tracks added successfully`);
+      debugLogs.push(`✓ All ${trackUris.length} tracks added successfully`);
     } catch (addError: any) {
       console.error('Failed to add tracks:', addError);
+      debugLogs.push(`❌ Failed to add tracks: ${addError.message}`);
+      debugLogs.push(`Error details: ${JSON.stringify(addError)}`);
+      
       // Return playlist URL even if adding tracks failed
       return NextResponse.json({
         spotifyPlaylistUrl: playlist.url,
         playlistId: playlist.id,
         warning: `Playlist created but failed to add tracks: ${addError.message}`,
+        debugLogs, // Include debug logs in response
       }, { status: 207 }); // 207 Multi-Status
     }
 
@@ -111,14 +146,17 @@ export async function POST(request: NextRequest) {
       
       await uploadPlaylistImage(accessToken, playlist.id, imageBuffer);
       console.log('Playlist cover image uploaded successfully');
+      debugLogs.push('✓ Playlist cover image uploaded');
     } catch (imageError: any) {
       console.warn('Failed to upload playlist image (non-critical):', imageError.message);
+      debugLogs.push(`⚠️ Failed to upload image: ${imageError.message}`);
       // Don't fail the request if image upload fails
     }
 
     return NextResponse.json({
       spotifyPlaylistUrl: playlist.url,
       playlistId: playlist.id,
+      debugLogs, // Include logs in successful response
     });
   } catch (error: any) {
     console.error('Create playlist error:', error);
